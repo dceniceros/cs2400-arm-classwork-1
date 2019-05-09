@@ -8,14 +8,17 @@ Follow the instructions for each of the following code samples in [Compliler Exp
 
 1. [printf](https://godbolt.org/z/y2YKew)
    1. What is the library function that is called?
-        The C library function that is being used is printf.
+        The C library function that is being used is printf. Printf is declared in the stdio.h header.
 
    2. Research the implementation (source code) of this function.
-        From the compiler explorer program, the source code for printf is line 5 which is
-        ldr r0, .L3
+        From the compiler explorer program, the source code for printf is line 5 and 6 which is
+            ldr     r0, .L3
+            bl      puts
+        the programs reads .L3, which reads, which reads the word .LC0, which reads "Hello World" and stores it in R0.
 
    3. Find out if the program directly executes the output operation or it makes a *system call* to the operating system.
-        The program directly executes the output operation. LR is used to store the return program counter when using the branch and link instruction.
+        The program directly executes the output operation. a "system call" to the operating system would require us to ask
+        for an operating system service, which is what we are not doing.
    
 2. [malloc](https://godbolt.org/z/kAZX7x)
    1. How are the arguments passed to `malloc` and `free`?
@@ -24,15 +27,21 @@ Follow the instructions for each of the following code samples in [Compliler Exp
 
    2. Research the implementation (source code) of `malloc` and `free`.
         From the compiler explorer program, the source code for malloc are lines 4, 6, and 7 which are
-        movs    r0, #4
-        mov     r3, r0
-        str     r3, [sp, #4]
-        From the compiler explorer program, the source code for free is line 8 which is
-        ldr     r0, [sp, #4]
-   
+            movs    r0, #4
+            bl      malloc
+            mov     r3, r0
+            str     r3, [sp, #4]
+        The function malloc() will allocate memory that of type int.
+        From the compiler explorer program, the source code for free is line 8 and 9 which are
+            ldr     r0, [sp, #4]
+            bl      free
+        you add 4 to the sp, you put the result into ro and load ro. You need to eventually call free exactly once for
+        every malloc. If you forget to call free, you'll get a long-running program.
+
 3. [malloc array](https://godbolt.org/z/bBl0zx)
    1. How does this case differ from the previous one?
-        In this program you are multiplying (sizeof(int)) with ARRSIZE. That size of the memory block is being explicitly casted to a pointer int. all of this is being set to a pointer *iarr of type int.
+        In this program you are multiplying (sizeof(int)) with ARRSIZE. That size of the memory block is being explicitly
+        casted to a pointer int. all of this is being set to a pointer *iarr of type int.
 
    2. [**hard**] Write your own tiny `malloc` library by declaring a large `FILL` area and writing a `malloc` and a `free` subroutines that manage allocations to that memory area. 
       1. `malloc` works approximately as follows:
@@ -86,7 +95,68 @@ Follow the instructions for each of the following code samples in [Compliler Exp
         2. Memory regions (VisUAL only supports `DCD` and `FILL` directives)
         3. Start of execution (VisUAL starts executing the top line, so you might need to rearrange your code)
            - alternatively, you can define a `_start` label and load it into `pc`
+                main
+                		sub		sp, sp, #28
+                		adr		r3, words
+                		mov		r4, sp
+                		mov		r5, r3
+                		ldmia	r5!, {r0, r1, r2, r3}
+                		stmia	r4!, {r0, r1, r2, r3}
+                		ldr		r3, [r5]
+                		str		r3, [r4]
+                		movs	r3, #0
+                		str		r3, [sp, #20]
+                		b		L4
+                L6
+                		ldr		r3, [sp, #20]
+                		lsls	r3, r3, #2
+                		add		r2, sp, #24
+                		add		r3, r3, r2
+                		ldr		r3, [r3, #-24]
+                		cmp		r3, #0
+                		bge		L5
+                		ldr		r3, [sp, #20]
+                		lsls	r3, r3, #2
+                		add		r2, sp, #24
+                		add		r3, r3, r2
+                		ldr		r3, [r3, #-24]
+                		mov		r0, r3
+                		bl		negate
+
+                L9		mov		r2, r0
+                		ldr		r3, [sp, #20]
+                		lsls	r3, r3, #2
+                		add		r1, sp, #24
+                		add		r3, r3, r1
+                		str		r2, [r3, #-24]
+                L5
+                		ldr		r3, [sp, #20]
+                		adds	r3, r3, #1
+                		str		r3, [sp, #20]
+                L4
+                		movs	r2, #5
+                		ldr		r3, [sp, #20]
+                		cmp		r3, r2
+                		blt		L6
+                		movs	r3, #0
+                		mov		r0, r3
+                		add		sp, sp, #28
+                		end
+
+                negate
+                		sub		sp, sp, #8
+                		str		r0, [sp, #4]
+                		ldr		r3, [sp, #4]
+                		rsbs	r3, r3, #0
+                		mov		r0, r3
+                		add		sp, sp, #8
+                		mov		pc, lr
+
+                words	dcd		1, -2, 5, -6, 2
+
    2. Observe/show that this code writes the local array in reverse order to the `static` global array.
+        With static global array, it will run until after main exits, so it will be in reverse compared to the local array.
+        Or it could be that it is in series in which a series data is stored in reverse order.
    
 5. [2d array](https://godbolt.org/z/Kr-Sn8)
    1. Port this code to VisUAL.
@@ -99,32 +169,32 @@ Follow the instructions for each of the following code samples in [Compliler Exp
    2. Add your 32-bit unsigned integer multiplication algorithm as a subroutine and run the code. Verify its correctness.
         main
         		sub		sp, sp, #8
-        		movs		r3, #0
+        		movs	r3, #0
         		str		r3, [sp, #4]
         		b		L2
         L5
-        		movs		r3, #0
+        		movs	r3, #0
         		str		r3, [sp]
         		b		L3
         L4
         		ldr		r3, [sp, #4]
         		ldr		r2, [sp]
         numbers	DCD		0b1100101010010001, 0b1111010101000011
-        result	FILL		8
-        carry	FILL		4
+        result	FILL	8
+        carry	FILL	4
         		ADR		r0, numbers
         		LDR		r1, [r0]
         		LDR		r2, [r0, #4]
         		MOV		r3, #0
         		MOV		r4, #0
         		MOV		r5, #0
-        loop		TST		r2, #1
+        loop	TST		r2, #1
         		BEQ		shift
-        		ADDS		r4, r4, r1
+        		ADDS	r4, r4, r1
         		ADC		r5, r5, r3
         shift	LSR		r2, r2, #1
         		LSL		r3, r3, #1
-        		LSLS		r1, r1, #1
+        		LSLS	r1, r1, #1
         		ADC		r3, r3, #0
         		CMP		r2, #0
         		BGT		loop
@@ -133,30 +203,30 @@ Follow the instructions for each of the following code samples in [Compliler Exp
         		ADR		r0, carry
         		STR		r5, [r0]
         		END
-        		lsls		r1, r3, #1
+        		lsls	r1, r3, #1
         		adr		r0, L7
         		ldr		r2, [sp, #4]
         		mov		r3, r2
-        		lsls		r3, r3, #2
+        		lsls	r3, r3, #2
         		add		r3, r3, r2
         		ldr		r2, [sp]
         		add		r3, r3, r2
         		str		r1, [r0, r3, lsl #2]
         		ldr		r3, [sp]
-        		adds		r3, r3, #1
+        		adds	r3, r3, #1
         		str		r3, [sp]
         L3
         		ldr		r3, [sp]
         		cmp		r3, #4
         		ble		L4
         		ldr		r3, [sp, #4]
-        		adds		r3, r3, #1
+        		adds	r3, r3, #1
         		str		r3, [sp, #4]
         L2
         		ldr		r3, [sp, #4]
         		cmp		r3, #9
         		ble		L5
-        		movs		r3, #0
+        		movs	r3, #0
         		mov		r0, r3
         		add		sp, sp, #8
         		MOV		pc, r0
